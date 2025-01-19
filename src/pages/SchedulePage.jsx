@@ -79,31 +79,22 @@ function SchedulePage() {
       alert('Please select at least one day');
       return;
     }
-
+  
     setIsSubmitting(true);
     try {
+      // Get FCM token
+      const fcmToken = await requestNotificationPermission();
+      
       await addDoc(collection(db, 'schedules'), {
         exerciseId: selectedExercise.id,
         exerciseName: selectedExercise.name,
         days: scheduleForm.days,
         time: scheduleForm.time,
         createdAt: new Date(),
-        userId: 'default'
+        userId: 'default',
+        fcmToken: fcmToken // Add this
       });
-
-      // Update local schedules state
-      setSchedules(prev => ({
-        ...prev,
-        [selectedExercise.id]: {
-          days: scheduleForm.days,
-          time: scheduleForm.time
-        }
-      }));
-
-      setShowForm(false);
-      setSelectedExercise(null);
-      setScheduleForm({ days: [], time: '' });
-      alert('Schedule saved successfully!');
+  
     } catch (error) {
       console.error('Error saving schedule:', error);
       alert('Error saving schedule: ' + error.message);

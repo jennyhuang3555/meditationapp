@@ -11,10 +11,12 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@heroicons/react": "^2.0.0",
     "firebase": "^10.14.1",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.2.0",
+    "firebase-messaging": "^1.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.0.0",
@@ -27,5 +29,15 @@
     "autoprefixer": "^10.0.0",
     "postcss": "^8.0.0",
     "vite": "^5.0.0"
-  }
+  },
+  "main": "vite.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jennyhuang3555/meditationapp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jennyhuang3555/meditationapp/issues"
+  },
+  "homepage": "https://github.com/jennyhuang3555/meditationapp#readme",
+  "description": ""
 }
