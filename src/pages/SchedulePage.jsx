@@ -10,29 +10,44 @@ import {
 
 function SchedulePage() {
   const [exercises, setExercises] = useState([]);
+  const [schedules, setSchedules] = useState({});
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     days: [],
     time: ''
   });
 
-  // Fetch exercises from Firebase
+  // Fetch exercises and schedules from Firebase
   useEffect(() => {
-    const fetchExercises = async () => {
+    const fetchData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'exercises'));
-        const exerciseList = querySnapshot.docs.map(doc => ({
+        // Fetch exercises
+        const exercisesSnapshot = await getDocs(collection(db, 'exercises'));
+        const exerciseList = exercisesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         setExercises(exerciseList);
+
+        // Fetch schedules
+        const schedulesSnapshot = await getDocs(collection(db, 'schedules'));
+        const schedulesData = {};
+        schedulesSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          schedulesData[data.exerciseId] = {
+            days: data.days,
+            time: data.time
+          };
+        });
+        setSchedules(schedulesData);
       } catch (error) {
-        console.error('Error fetching exercises:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchExercises();
+    fetchData();
   }, []);
 
   const handleExerciseSelect = (exercise) => {
@@ -60,22 +75,40 @@ function SchedulePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (scheduleForm.days.length === 0) {
+      alert('Please select at least one day');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // Save schedule to Firebase
       await addDoc(collection(db, 'schedules'), {
         exerciseId: selectedExercise.id,
         exerciseName: selectedExercise.name,
         days: scheduleForm.days,
         time: scheduleForm.time,
-        createdAt: new Date()
+        createdAt: new Date(),
+        userId: 'default'
       });
 
-      // Reset form
+      // Update local schedules state
+      setSchedules(prev => ({
+        ...prev,
+        [selectedExercise.id]: {
+          days: scheduleForm.days,
+          time: scheduleForm.time
+        }
+      }));
+
       setShowForm(false);
       setSelectedExercise(null);
       setScheduleForm({ days: [], time: '' });
+      alert('Schedule saved successfully!');
     } catch (error) {
       console.error('Error saving schedule:', error);
+      alert('Error saving schedule: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -97,8 +130,18 @@ function SchedulePage() {
               onClick={() => handleExerciseSelect(exercise)}
               className="text-left p-4 border rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <h3 className="font-semibold">{exercise.name}</h3>
-              <p className="text-gray-600">Duration: {exercise.duration} minutes</p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-semibold">{exercise.name}</h3>
+                  <p className="text-gray-600">Duration: {exercise.duration} minutes</p>
+                </div>
+                {schedules[exercise.id] && (
+                  <div className="text-right text-sm text-gray-600">
+                    <p>Days: {schedules[exercise.id].days.join(', ')}</p>
+                    <p>Time: {schedules[exercise.id].time}</p>
+                  </div>
+                )}
+              </div>
             </button>
           ))}
         </div>
@@ -163,9 +206,14 @@ function SchedulePage() {
               </button>
               <button
                 type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                disabled={isSubmitting}
+                className={`${
+                  isSubmitting 
+                    ? 'bg-blue-300' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white px-4 py-2 rounded-lg`}
               >
-                Save Schedule
+                {isSubmitting ? 'Saving...' : 'Save Schedule'}
               </button>
             </div>
           </form>
