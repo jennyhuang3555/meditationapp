@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { 
+  collection, 
+  addDoc, 
+  getDocs,
+  query,
+  where 
+} from 'firebase/firestore';
 
 function SchedulePage() {
+  const [exercises, setExercises] = useState([]);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
@@ -8,16 +17,23 @@ function SchedulePage() {
     time: ''
   });
 
-  // We'll replace this with Firebase data later
-  const exercises = [
-    { id: 1, name: 'Mindfulness Breathing', duration: 10 },
-    { id: 2, name: 'Body Scan', duration: 15 },
-    { id: 3, name: 'Walking Meditation', duration: 20 }
-  ];
+  // Fetch exercises from Firebase
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'exercises'));
+        const exerciseList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setExercises(exerciseList);
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+      }
+    };
 
-  const daysOfWeek = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-  ];
+    fetchExercises();
+  }, []);
 
   const handleExerciseSelect = (exercise) => {
     setSelectedExercise(exercise);
@@ -42,19 +58,30 @@ function SchedulePage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here we'll add Firebase integration later
-    console.log({
-      exercise: selectedExercise,
-      ...scheduleForm
-    });
-    
-    // Reset form
-    setShowForm(false);
-    setSelectedExercise(null);
-    setScheduleForm({ days: [], time: '' });
+    try {
+      // Save schedule to Firebase
+      await addDoc(collection(db, 'schedules'), {
+        exerciseId: selectedExercise.id,
+        exerciseName: selectedExercise.name,
+        days: scheduleForm.days,
+        time: scheduleForm.time,
+        createdAt: new Date()
+      });
+
+      // Reset form
+      setShowForm(false);
+      setSelectedExercise(null);
+      setScheduleForm({ days: [], time: '' });
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+    }
   };
+
+  const daysOfWeek = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
 
   return (
     <div className="max-w-4xl mx-auto">

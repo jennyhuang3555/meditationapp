@@ -1,13 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 function HomePage() {
-  // Dummy data for now - we'll connect to Firebase later
-  const weeklySchedule = [
-    { day: 'Monday', exercise: 'Morning Breathing', time: '7:00 AM' },
-    { day: 'Tuesday', exercise: 'Body Scan', time: '8:00 AM' },
-    { day: 'Wednesday', exercise: 'Mindful Walking', time: '7:30 AM' },
-  ];
+  const [weeklySchedule, setWeeklySchedule] = useState([]);
+
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'schedules'));
+        const scheduleList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setWeeklySchedule(scheduleList);
+      } catch (error) {
+        console.error('Error fetching schedule:', error);
+      }
+    };
+
+    fetchSchedule();
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto">
