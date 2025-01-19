@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
- 
+
 const firebaseConfig = {
-  apiKey: "AIzaSyBjCGDwoCNOnAXEn8-3cviwU9o3wC2uV_g",
-  authDomain: "meditationapp-484fc.firebaseapp.com",
-  projectId: "meditationapp-484fc",
-  storageBucket: "meditationapp-484fc.appspot.com",
-  messagingSenderId: "816648817051",
-  appId: "1:816648817051:web:75ee22283fdf38564c793e"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
