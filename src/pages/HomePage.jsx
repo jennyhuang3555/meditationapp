@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, getDocs, query, where, orderBy, getDoc, doc } from 'firebase/firestore';
-import { getMessaging, getToken } from 'firebase/messaging';
 
 function HomePage() {
   const [upcomingExercises, setUpcomingExercises] = useState([]);
@@ -59,15 +58,18 @@ function HomePage() {
     }
   };
 
+  // Add useEffect to refetch when component mounts or when navigating back
   useEffect(() => {
     fetchSchedule();
   }, []);
 
+  // Add useEffect to refetch periodically
   useEffect(() => {
-    const interval = setInterval(fetchSchedule, 30000);
+    const interval = setInterval(fetchSchedule, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
+  // Add useEffect to refetch when the page becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -83,47 +85,6 @@ function HomePage() {
       window.removeEventListener('focus', fetchSchedule);
     };
   }, []);
-
-  const testNotification = async () => {
-    try {
-      const messaging = getMessaging();
-      const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-      });
-
-      console.log('Starting notification test...');
-      console.log('FCM Token:', token);
-
-      if (!token) {
-        throw new Error('Failed to get FCM token');
-      }
-
-      // Send a test notification using Firebase Cloud Function
-      const response = await fetch(
-        'https://us-central1-meditationapp-484fc.cloudfunctions.net/sendTestNotification',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token })
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`);
-      }
-
-      const result = await response.json();
-      console.log('Notification sent successfully:', result);
-      alert('Test notification sent! Check your notifications.');
-
-    } catch (error) {
-      console.error('Error testing notification:', error);
-      alert('Error sending test notification: ' + error.message);
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto">

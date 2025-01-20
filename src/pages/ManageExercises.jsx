@@ -156,11 +156,11 @@ function ManageExercises() {
                 key={exercise.id}
                 className="card p-6 transition-all duration-300 hover:scale-105"
               >
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col">
                   <div>
                     <h3 className="text-xl font-light text-gray-700 mb-2">{exercise.name}</h3>
                     <p className="text-gray-500 mb-2">Duration: {exercise.duration} minutes</p>
-                    <div className="whitespace-pre-wrap">
+                    <div className="whitespace-pre-wrap mb-4">
                       {exercise.description?.split('•').map((point, i) => 
                         point.trim() && (
                           <div key={i} className={`${i > 0 ? 'ml-4' : ''} mb-2 text-gray-600`}>
@@ -170,7 +170,7 @@ function ManageExercises() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 justify-end mt-auto">
                     <button
                       onClick={() => handleEdit(exercise)}
                       className="px-4 py-2 text-purple-600 hover:text-purple-700 rounded-full border border-purple-300 hover:border-purple-400 transition-colors"
