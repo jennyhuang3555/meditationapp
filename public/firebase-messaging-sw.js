@@ -13,11 +13,13 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/meditation-icon.png'
-  };
+  console.log('Received background message:', payload);
+  self.registration.showNotification(payload.notification.title, {
+    body: payload.notification.body
+  });
+});
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  clients.openWindow('https://meditationapp-484fc.web.app/');
 });

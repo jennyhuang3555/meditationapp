@@ -2,37 +2,52 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-exports.sendScheduledNotifications = functions.pubsub
-  .schedule('every 1 minutes')
-  .onRun(async (context) => {
-    const now = new Date();
-    const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
-    const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+// Remove the pubsub scheduler for now and just handle the test notification
+exports.sendTestNotification = functions.https.onRequest(async (req, res) => {
+  // Enable CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).send('');
+    return;
+  }
 
-    const snapshot = await admin.firestore()
-      .collection('schedules')
-      .where('days', 'array-contains', day)
-      .where('time', '==', time)
-      .get();
-
-    const notifications = [];
+  try {
+    const { token } = req.body;
     
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      notifications.push({
-        notification: {
-          title: 'Time to Meditate',
-          body: `It's time for your ${data.exerciseName} meditation`,
-        },
-        token: data.fcmToken,
-      });
-    });
+    console.log('Received request to send test notification');
+    console.log('Token:', token);
 
-    for (const notification of notifications) {
-      try {
-        await admin.messaging().send(notification);
-      } catch (error) {
-        console.error('Error sending notification:', error);
-      }
+    if (!token) {
+      throw new Error('No FCM token provided');
     }
-  });
+
+    const message = {
+      notification: {
+        title: 'Test Meditation Reminder',
+        body: 'This is a test notification. Your meditation app is working!'
+      },
+      token: token
+    };
+
+    console.log('Sending message:', message);
+    
+    const response = await admin.messaging().send(message);
+    console.log('Notification sent successfully:', response);
+    
+    res.json({ 
+      success: true, 
+      message: 'Notification sent successfully',
+      messageId: response 
+    });
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      errorDetails: error
+    });
+  }
+});

@@ -5,8 +5,11 @@ import {
   addDoc, 
   getDocs,
   query,
-  where 
+  where,
+  updateDoc,
+  doc
 } from 'firebase/firestore';
+import { getMessaging, getToken } from 'firebase/messaging';
 
 function SchedulePage() {
   const [exercises, setExercises] = useState([]);
@@ -18,6 +21,36 @@ function SchedulePage() {
     days: [],
     time: ''
   });
+
+  // Add FCM token state
+  const [fcmToken, setFcmToken] = useState(null);
+
+  // Update the VAPID key to use environment variable
+  const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+  // Add permission request when component mounts
+  useEffect(() => {
+    const requestPermissionAndToken = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const messaging = getMessaging();
+          const token = await getToken(messaging, {
+            vapidKey: VAPID_KEY
+          });
+          setFcmToken(token);
+          console.log('FCM Token obtained:', token);
+        } else {
+          console.log('Notification permission denied');
+          alert('Please enable notifications to set exercise schedules');
+        }
+      } catch (error) {
+        console.error('Error requesting permission:', error);
+      }
+    };
+
+    requestPermissionAndToken();
+  }, []);
 
   // Fetch exercises and schedules from Firebase
   useEffect(() => {
@@ -75,26 +108,54 @@ function SchedulePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (scheduleForm.days.length === 0) {
-      alert('Please select at least one day');
-      return;
-    }
-  
     setIsSubmitting(true);
+
     try {
-      // Get FCM token
-      const fcmToken = await requestNotificationPermission();
-      
-      await addDoc(collection(db, 'schedules'), {
+      // If no FCM token, try requesting permission again
+      if (!fcmToken) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const messaging = getMessaging();
+          const token = await getToken(messaging, {
+            vapidKey: VAPID_KEY
+          });
+          setFcmToken(token);
+        } else {
+          throw new Error('Notification permission is required to set schedules. Please enable notifications and try again.');
+        }
+      }
+
+      const scheduleData = {
         exerciseId: selectedExercise.id,
         exerciseName: selectedExercise.name,
         days: scheduleForm.days,
         time: scheduleForm.time,
-        createdAt: new Date(),
-        userId: 'default',
-        fcmToken: fcmToken // Add this
-      });
-  
+        fcmToken: fcmToken
+      };
+
+      // Check if schedule already exists
+      const schedulesRef = collection(db, 'schedules');
+      const q = query(schedulesRef, 
+        where('exerciseId', '==', selectedExercise.id)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // Update existing schedule
+        const scheduleDoc = querySnapshot.docs[0];
+        await updateDoc(doc(db, 'schedules', scheduleDoc.id), scheduleData);
+      } else {
+        // Create new schedule
+        await addDoc(collection(db, 'schedules'), scheduleData);
+      }
+
+      // After successful save
+      setShowForm(false);
+      setScheduleForm({ days: [], time: '' });
+      setSelectedExercise(null);
+      
+      // Force refresh homepage data
+      window.dispatchEvent(new Event('schedule-updated'));
     } catch (error) {
       console.error('Error saving schedule:', error);
       alert('Error saving schedule: ' + error.message);
@@ -109,25 +170,25 @@ function SchedulePage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Schedule Exercises</h1>
+      <h1 className="text-4xl font-light text-gray-900 mb-6">Schedule Exercises</h1>
 
       {/* Exercise List */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Select an Exercise</h2>
+      <div className="card p-8 mb-8">
+        <h2 className="text-2xl font-light text-gray-700 mb-6">Select an Exercise</h2>
         <div className="grid gap-4">
           {exercises.map(exercise => (
             <button
               key={exercise.id}
               onClick={() => handleExerciseSelect(exercise)}
-              className="text-left p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="text-left p-6 border border-purple-100 rounded-lg hover:bg-purple-50 transition-all duration-300 hover:scale-105"
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold">{exercise.name}</h3>
-                  <p className="text-gray-600">Duration: {exercise.duration} minutes</p>
+                  <h3 className="text-xl font-light text-gray-700 mb-2">{exercise.name}</h3>
+                  <p className="text-gray-500">Duration: {exercise.duration} minutes</p>
                 </div>
                 {schedules[exercise.id] && (
-                  <div className="text-right text-sm text-gray-600">
+                  <div className="text-right text-sm text-purple-600">
                     <p>Days: {schedules[exercise.id].days.join(', ')}</p>
                     <p>Time: {schedules[exercise.id].time}</p>
                   </div>
@@ -140,20 +201,20 @@ function SchedulePage() {
 
       {/* Scheduling Form */}
       {showForm && selectedExercise && (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">
+        <div className="card p-8">
+          <h2 className="text-2xl font-light text-gray-700 mb-6">
             Schedule "{selectedExercise.name}"
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">
+            <div className="mb-6">
+              <label className="block text-gray-600 mb-4">
                 Days of Week
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {daysOfWeek.map(day => (
                   <label
                     key={day}
-                    className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50"
+                    className="flex items-center p-3 border border-purple-100 rounded-lg hover:bg-purple-50 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -161,16 +222,16 @@ function SchedulePage() {
                       value={day}
                       checked={scheduleForm.days.includes(day)}
                       onChange={handleInputChange}
-                      className="h-4 w-4 text-blue-500 rounded"
+                      className="h-4 w-4 text-purple-600 rounded border-purple-300 focus:ring-purple-200"
                     />
-                    <span>{day}</span>
+                    <span className="ml-2 text-gray-600">{day}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2" htmlFor="time">
+            <div className="mb-8">
+              <label className="block text-gray-600 mb-2" htmlFor="time">
                 Time
               </label>
               <input
@@ -179,7 +240,7 @@ function SchedulePage() {
                 name="time"
                 value={scheduleForm.time}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-3 border border-purple-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
                 required
               />
             </div>
@@ -191,18 +252,14 @@ function SchedulePage() {
                   setShowForm(false);
                   setSelectedExercise(null);
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`${
-                  isSubmitting 
-                    ? 'bg-blue-300' 
-                    : 'bg-blue-500 hover:bg-blue-600'
-                } text-white px-4 py-2 rounded-lg`}
+                className={`gradient-button ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
               >
                 {isSubmitting ? 'Saving...' : 'Save Schedule'}
               </button>

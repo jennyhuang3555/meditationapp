@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, getDoc, doc } from 'firebase/firestore';
+import { getMessaging, getToken } from 'firebase/messaging';
 
 function HomePage() {
   const [upcomingExercises, setUpcomingExercises] = useState([]);
@@ -10,26 +11,49 @@ function HomePage() {
     try {
       const today = new Date();
       const currentDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][today.getDay()];
-      const currentTime = today.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-
-      const querySnapshot = await getDocs(
-        query(collection(db, 'schedules'),
-        orderBy('time', 'asc'))
-      );
-
-      const scheduleList = querySnapshot.docs
-        .map(doc => ({
+      console.log('Current day:', currentDay);
+      
+      // First get all exercises
+      const exercisesSnapshot = await getDocs(collection(db, 'exercises'));
+      const exercisesMap = {};
+      exercisesSnapshot.docs.forEach(doc => {
+        exercisesMap[doc.id] = {
           id: doc.id,
           ...doc.data()
-        }))
-        .filter(schedule => schedule.days.includes(currentDay))
-        .sort((a, b) => {
-          if (a.time < currentTime && b.time > currentTime) return 1;
-          if (a.time > currentTime && b.time < currentTime) return -1;
-          return a.time.localeCompare(b.time);
-        });
+        };
+      });
+      console.log('Exercises map:', exercisesMap);
 
-      setUpcomingExercises(scheduleList);
+      // Then get all schedules
+      const schedulesSnapshot = await getDocs(collection(db, 'schedules'));
+      console.log('Raw schedules:', schedulesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      const scheduleList = [];
+
+      schedulesSnapshot.docs.forEach(scheduleDoc => {
+        const scheduleData = scheduleDoc.data();
+        console.log('Processing schedule:', scheduleData);
+        console.log('Exercise ID:', scheduleData.exerciseId);
+        console.log('Found exercise:', exercisesMap[scheduleData.exerciseId]);
+        console.log('Days include current day?', scheduleData.days.includes(currentDay));
+        
+        const exercise = exercisesMap[scheduleData.exerciseId];
+        
+        if (exercise && scheduleData.days.includes(currentDay)) {
+          scheduleList.push({
+            id: scheduleDoc.id,
+            ...scheduleData,
+            exerciseName: exercise.name,
+            description: exercise.description,
+            duration: exercise.duration
+          });
+        }
+      });
+
+      // Sort by time
+      const sortedSchedules = scheduleList.sort((a, b) => a.time.localeCompare(b.time));
+      console.log('Final sorted schedules:', sortedSchedules);
+      setUpcomingExercises(sortedSchedules);
     } catch (error) {
       console.error('Error fetching schedule:', error);
     }
@@ -40,81 +64,122 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(fetchSchedule, 60000);
+    const interval = setInterval(fetchSchedule, 30000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const handleFocus = () => {
-      fetchSchedule();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSchedule();
+      }
     };
 
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        handleFocus();
-      }
-    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', fetchSchedule);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', fetchSchedule);
     };
   }, []);
+
+  const testNotification = async () => {
+    try {
+      const messaging = getMessaging();
+      const token = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+      });
+
+      console.log('Starting notification test...');
+      console.log('FCM Token:', token);
+
+      if (!token) {
+        throw new Error('Failed to get FCM token');
+      }
+
+      // Send a test notification using Firebase Cloud Function
+      const response = await fetch(
+        'https://us-central1-meditationapp-484fc.cloudfunctions.net/sendTestNotification',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`);
+      }
+
+      const result = await response.json();
+      console.log('Notification sent successfully:', result);
+      alert('Test notification sent! Check your notifications.');
+
+    } catch (error) {
+      console.error('Error testing notification:', error);
+      alert('Error sending test notification: ' + error.message);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-light text-gray-700 mb-2">Your Meditation Journey</h1>
-        <p className="text-gray-500">Today's peaceful moments await</p>
+        <h1 className="text-4xl font-light text-gray-900 mb-2">Your Meditation Journey</h1>
+        <p className="text-gray-600">Today's peaceful moments await</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {upcomingExercises.map((schedule, index) => (
+      <div className="grid gap-6">
+        {upcomingExercises.map((schedule) => (
           <div 
             key={schedule.id}
-            className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105"
-            style={{
-              borderLeft: `4px solid ${
-                schedule.time < new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
-                  ? '#CBD5E1'  // past exercises
-                  : '#93C5FD'  // upcoming exercises
-              }`
-            }}
+            className="card p-6 transition-all duration-300 hover:scale-105"
           >
-            <div className="flex flex-col h-full">
-              <div className="mb-4">
-                <span className="text-sm font-medium text-blue-400">
+            <div className="flex flex-col">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-light text-gray-900">
+                  {schedule.exerciseName}
+                </h3>
+                <span className="text-lg font-medium text-purple-600">
                   {schedule.time}
                 </span>
               </div>
               
-              <h3 className="text-2xl font-light text-gray-700 mb-2">
-                {schedule.exerciseName}
-              </h3>
+              <p className="text-gray-500 mb-2">Duration: {schedule.duration} minutes</p>
               
-              <div className="flex-grow">
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {schedule.days.map(day => (
-                    <span 
-                      key={day}
-                      className="px-3 py-1 text-xs rounded-full bg-blue-50 text-blue-600"
-                    >
-                      {day}
-                    </span>
-                  ))}
-                </div>
+              <div className="text-gray-600 whitespace-pre-wrap mb-4">
+                {schedule.description?.split('•').map((point, i) => 
+                  point.trim() && (
+                    <div key={i} className={`${i > 0 ? 'ml-4' : ''} mb-2`}>
+                      {i > 0 ? '• ' : ''}{point.trim()}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {schedule.days.map(day => (
+                  <span 
+                    key={day}
+                    className="px-3 py-1 text-sm rounded-full bg-purple-50 text-purple-600"
+                  >
+                    {day}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
         ))}
 
         {upcomingExercises.length === 0 && (
-          <div className="col-span-2 text-center py-12 bg-white rounded-2xl shadow-sm">
-            <p className="text-gray-500 mb-4">No meditation exercises scheduled for today</p>
+          <div className="card p-8 text-center">
+            <p className="text-gray-500 mb-4">No upcoming meditation exercises scheduled</p>
             <Link
               to="/schedule"
-              className="inline-block px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+              className="gradient-button inline-block"
             >
               Schedule Your First Session
             </Link>

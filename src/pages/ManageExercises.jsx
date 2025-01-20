@@ -127,16 +127,16 @@ function ManageExercises() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Manage Exercises</h1>
+        <h1 className="text-4xl font-light text-gray-900 mb-2">Manage Exercises</h1>
         <button
           onClick={() => {
             setEditingExercise(null);
             setFormData({ name: '', duration: '', description: '' });
             setIsFormOpen(true);
           }}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+          className="gradient-button"
         >
           Add Exercise
         </button>
@@ -144,34 +144,46 @@ function ManageExercises() {
 
       {/* Display existing exercises */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Current Exercises</h2>
+        <h2 className="text-2xl font-light text-gray-900 mb-6">Current Exercises</h2>
         {exercises.length === 0 ? (
-          <p className="text-gray-500">No exercises added yet.</p>
+          <div className="card p-6 text-center">
+            <p className="text-gray-500">No exercises added yet.</p>
+          </div>
         ) : (
           <div className="grid gap-4">
             {exercises.map(exercise => (
               <div 
                 key={exercise.id}
-                className="bg-white p-4 rounded-lg shadow flex justify-between items-start"
+                className="card p-6 transition-all duration-300 hover:scale-105"
               >
-                <div>
-                  <h3 className="font-semibold">{exercise.name}</h3>
-                  <p className="text-gray-600">Duration: {exercise.duration} minutes</p>
-                  <p className="text-gray-600">{exercise.description}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(exercise)}
-                    className="text-blue-500 hover:text-blue-700 px-3 py-1 rounded border border-blue-500 hover:border-blue-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(exercise.id)}
-                    className="text-red-500 hover:text-red-700 px-3 py-1 rounded border border-red-500 hover:border-red-700"
-                  >
-                    Delete
-                  </button>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-light text-gray-700 mb-2">{exercise.name}</h3>
+                    <p className="text-gray-500 mb-2">Duration: {exercise.duration} minutes</p>
+                    <div className="whitespace-pre-wrap">
+                      {exercise.description?.split('•').map((point, i) => 
+                        point.trim() && (
+                          <div key={i} className={`${i > 0 ? 'ml-4' : ''} mb-2 text-gray-600`}>
+                            {i > 0 ? '• ' : ''}{point.trim()}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(exercise)}
+                      className="px-4 py-2 text-purple-600 hover:text-purple-700 rounded-full border border-purple-300 hover:border-purple-400 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(exercise.id)}
+                      className="px-4 py-2 text-pink-600 hover:text-pink-700 rounded-full border border-pink-300 hover:border-pink-400 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -181,13 +193,13 @@ function ManageExercises() {
 
       {/* Exercise Form */}
       {isFormOpen && (
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">
+        <div className="card p-8 mb-8">
+          <h2 className="text-2xl font-light text-gray-700 mb-6">
             {editingExercise ? 'Edit Exercise' : 'Add New Exercise'}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="name">
+            <div className="mb-6">
+              <label className="block text-gray-600 mb-2" htmlFor="name">
                 Exercise Name
               </label>
               <input
@@ -196,12 +208,12 @@ function ManageExercises() {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-3 border border-purple-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
                 required
               />
             </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="duration">
+            <div className="mb-6">
+              <label className="block text-gray-600 mb-2" htmlFor="duration">
                 Duration (minutes)
               </label>
               <input
@@ -210,12 +222,12 @@ function ManageExercises() {
                 name="duration"
                 value={formData.duration}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-3 border border-purple-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
                 required
               />
             </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2" htmlFor="description">
+            <div className="mb-6">
+              <label className="block text-gray-600 mb-2" htmlFor="description">
                 Description
               </label>
               <textarea
@@ -223,9 +235,12 @@ function ManageExercises() {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded-lg"
-                rows="3"
-                required
+                className="w-full p-2 border rounded"
+                rows="4"
+                placeholder="Enter description using bullet points with • symbol:
+• First point
+• Second point
+• Third point"
               />
             </div>
             <div className="flex justify-end gap-4">
@@ -236,13 +251,13 @@ function ManageExercises() {
                   setFormData({ name: '', duration: '', description: '' });
                   setEditingExercise(null);
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                className="gradient-button"
               >
                 {editingExercise ? 'Update Exercise' : 'Save Exercise'}
               </button>
